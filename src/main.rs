@@ -1,17 +1,21 @@
 use dotenv::dotenv;
-use clap::{Arg, ArgAction, Command};
 use std::env;
 use tungstenite::{connect, Message};
 use clap::Parser;
 use serde::{Serialize};
 use serde_json::Result;
-// use futures_util::{future, StreamExt};
+use std::{thread, time::Duration};
 
-/// Simple program to greet a person
+/// RCON client for Rust Dedicated Server
 #[derive(Parser, Debug)]
 struct Args {
+    /// Commands to run on server
     #[arg(short, long, num_args=1.., value_delimiter = ',')]
     commands: Vec<String>,
+
+    /// Custom env path (optional)
+    #[arg(short, long, default_value="")]
+    env_path: String,
 }
 
 #[derive(Serialize)]
@@ -42,19 +46,24 @@ fn send(url: String, commands: Vec<String>) {
             .expect(format!("Cannot process command: {}", command).as_str());
     }
 
+    thread::sleep(Duration::from_millis(4000));
+
     socket.close(None).expect("Cannot close socket");
 
 }
 
 fn main() {
-    dotenv().ok();
+    let Args { commands, env_path } = Args::parse();
+    if env_path.is_empty() {
+        dotenv().ok();
+    } else {
+        dotenv::from_path(env_path).ok();
+    }
 
     let server = env::var("SERVER").expect("SERVER must be set");
     let port = env::var("PORT").expect("PORT must be set");
     let password = env::var("PASSWORD").expect("PASSWORD must be set");
 
     let url = format!("ws://{}:{}/{}", server, port, password);
-
-    let Args { commands } = Args::parse();
     send(url, commands);
 }
